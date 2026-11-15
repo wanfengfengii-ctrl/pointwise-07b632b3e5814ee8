@@ -82,7 +82,7 @@ class Base64Sink:
             raise ValueError("incomplete base64 padding")
         if len(self._tail) % 4:
             raise ValueError("base64 length is not a multiple of four")
-        self._flush(force=True)
+        self._flush(keep_partial=False)
         self._out.finish()
 
     # -- internals ------------------------------------------------------
@@ -117,8 +117,6 @@ class Base64Sink:
             self._consume_data(data[:eq])
             self._consume_padding(data[eq:])
 
-    # -- internals ------------------------------------------------------
-
     def _consume_data(self, data):
         if not data:
             return
@@ -128,18 +126,11 @@ class Base64Sink:
             raise ValueError("invalid base64 alphabet character")
         self._tail.extend(data)
         if len(self._tail) >= _BLOCK:
-            self._flush(force=False)
+            self._flush(keep_partial=True)
 
-    def _flush(self, force):
+    def _flush(self, keep_partial):
         total = len(self._tail)
-        complete = total - (total % 4)
-        if force:
-            complete = total
-        elif total >= _BLOCK:
-            # Leave a partial group for the next write.
-            complete = total - (total % 4)
-        else:
-            return
+        complete = total - (total % 4) if keep_partial else total
         if not complete:
             return
         block = bytes(self._tail[:complete])
